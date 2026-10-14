@@ -1,36 +1,60 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Cambio Pendant Planner
 
-## Getting Started
+A single-page app to design an [About Space Cambio](https://www.aboutspace.net.au/collections/cambio) pendant light by dragging shades onto a fixture. Includes a running cost tally (sale + RRP) and one-click PNG export of the design.
 
-First, run the development server:
+The entire product catalogue (shade shapes, dimensions, per-colour prices and RRPs) is stored in the codebase at [`lib/catalog.ts`](lib/catalog.ts) — no backend or database required.
+
+## Getting started
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Build
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+```
 
-## Learn More
+This produces a fully static site in `out/` (no server required). Preview it with any static file server, e.g.:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npx serve out
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Deploy to GitHub Pages (no Vercel)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The app is a pure static export, so it can be hosted anywhere that serves HTML/CSS/JS — including GitHub Pages for free.
 
-## Deploy on Vercel
+One-time setup in your GitHub repo:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. Go to **Settings → Pages**.
+2. Under **Build and deployment**, set **Source** to **GitHub Actions**.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Then just push to `main`. The [workflow](.github/workflows/deploy.yml) builds the site with `BASE_PATH=/cambio-planner` and deploys the `out/` folder to Pages. The site will be live at:
+
+```
+https://<your-username>.github.io/cambio-planner/
+```
+
+> **Important:** the `BASE_PATH` must match your repository name. If you rename the repo or use a custom domain, change `BASE_PATH` in `.github/workflows/deploy.yml` (and optionally the branch in `on.push.branches`).
+>
+> GitHub Pages on the free plan requires the repository to be **public** (or a paid plan for private repos).
+
+## How the catalogue works
+
+The data was extracted from the About Space Shopify storefront API (`/products/<handle>.json`) and hand-curated into `lib/catalog.ts`. Each item records:
+
+- shade shape profile (`dome` / `cone` / `flat`), diameter and height in mm
+- fixture type (`cord` / `flush` / `linear`) and drop/length in mm
+- available colours with a hex value, current sale price and RRP
+
+To refresh prices, re-fetch the product JSON and update the `c()` entries in `lib/catalog.ts`.
+
+## Notes
+
+- Sale prices change frequently on the source site; the tally is indicative — always confirm on aboutspace.net.au before ordering.
+- Designs are saved to `localStorage` and survive a refresh.
