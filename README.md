@@ -1,8 +1,14 @@
 # Cambio Pendant Planner
 
+2 first home buyers wants to buy a light.
+
 A single-page app to design an [About Space Cambio](https://www.aboutspace.net.au/collections/cambio) pendant light by dragging shades onto a fixture. Includes a running cost tally (sale + RRP) and one-click PNG export of the design.
 
 The entire product catalogue (shade shapes, dimensions, per-colour prices and RRPs) is stored in the codebase at [`lib/catalog.ts`](lib/catalog.ts) — no backend or database required.
+
+
+https://github.com/user-attachments/assets/7c7f53f7-f5ca-4c89-aada-fee56e9def2d
+
 
 ## Getting started
 
