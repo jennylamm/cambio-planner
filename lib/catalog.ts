@@ -1,4 +1,22 @@
-export type ShadeProfile = "dome" | "cone" | "flat";
+export type ShapeProfile = "cylinder" | "dome" | "cone";
+export type FixtureType = "cord" | "flush" | "bar" | "dome" | "rod";
+
+export type DropOrientation = "down" | "left" | "right";
+
+/**
+ * Per-socket geometry for rod-type bases, relative to the frame's horizontal
+ * rod (origin at its left end; y measured downward from the rod).
+ */
+export type DropLayout = {
+  /** socket x offset from the rod's left end (mm) */
+  xMm: number;
+  /** socket centre below the rod (mm) */
+  yMm: number;
+  orient: DropOrientation;
+};
+
+/** A bare rod leg of a rod frame (no socket). */
+export type RodLeg = { xMm: number; yMm: number };
 
 export type Colour = {
   name: string;
@@ -9,24 +27,30 @@ export type Colour = {
   rrp: number;
 };
 
-export type FixtureType = "cord" | "flush" | "linear";
-
 export type Item = {
   id: string;
-  kind: "shade" | "fixture";
+  category: "shade" | "fixture" | "pendant";
   name: string;
   /** Shades only */
-  profile?: ShadeProfile;
+  profile?: ShapeProfile;
   /** Shades only, millimetres */
   diameterMm?: number;
   /** Shades only, millimetres */
   heightMm?: number;
-  /** Fixtures only */
+  /** Shades only — top opening diameter in mm (defaults to 42 mount hole) */
+  topDiameterMm?: number;
+  /** Bases (fixtures + pendants) only */
   fixtureType?: FixtureType;
-  /** Fixtures only — cord/rod drop length in mm */
+  /** Bases only — cord/rod drop length in mm */
   dropMm?: number;
-  /** Fixtures only — linear rail length in mm */
+  /** Bases only — body/rail width in mm (bar and dome bodies) */
   lengthMm?: number;
+  /** Bases only — number of shade mount points (defaults to 1) */
+  drops?: number;
+  /** Bases only — per-socket geometry (rod frames) */
+  dropLayout?: DropLayout[];
+  /** Bases only — bare rod legs with no socket (rod frames) */
+  legs?: RodLeg[];
   colours: Colour[];
   sourceUrl: string;
 };
@@ -53,46 +77,70 @@ function c(name: string, price: number, rrp: number): Colour {
 function shade(
   id: string,
   name: string,
-  profile: ShadeProfile,
+  profile: ShapeProfile,
   diameterMm: number,
   heightMm: number,
   colours: Colour[],
   handle: string,
+  topDiameterMm?: number,
 ): Item {
   return {
     id,
-    kind: "shade",
+    category: "shade",
     name,
     profile,
     diameterMm,
     heightMm,
+    topDiameterMm,
     colours,
     sourceUrl: `https://www.aboutspace.net.au/products/${handle}`,
   };
 }
 
-function fixture(
+type BaseOpts = {
+  dropMm?: number;
+  lengthMm?: number;
+  drops?: number;
+  dropLayout?: DropLayout[];
+  legs?: RodLeg[];
+};
+
+function base(
   id: string,
   name: string,
   fixtureType: FixtureType,
   colours: Colour[],
   handle: string,
-  opts: { dropMm?: number; lengthMm?: number } = {},
+  opts: BaseOpts = {},
 ): Item {
   return {
     id,
-    kind: "fixture",
+    category: "fixture",
     name,
     fixtureType,
     dropMm: opts.dropMm,
     lengthMm: opts.lengthMm,
+    drops: opts.drops ?? opts.dropLayout?.length ?? 1,
+    dropLayout: opts.dropLayout,
+    legs: opts.legs,
     colours,
     sourceUrl: `https://www.aboutspace.net.au/products/${handle}`,
   };
 }
 
+function pendant(
+  id: string,
+  name: string,
+  fixtureType: FixtureType,
+  colours: Colour[],
+  handle: string,
+  opts: BaseOpts = {},
+): Item {
+  return { ...base(id, name, fixtureType, colours, handle, opts), category: "pendant" };
+}
+
 export const SHADES: Item[] = [
-  shade("shade-a", "Cambio Shade A", "dome", 100, 75, [
+  shade("shade-a", "Cambio Shade A", "cylinder", 100, 75, [
     c("Black", 17.6, 44.0),
     c("Blue", 17.6, 44.0),
     c("Green", 17.6, 44.0),
@@ -101,7 +149,7 @@ export const SHADES: Item[] = [
     c("Yellow", 26.4, 66.0),
   ], "cambio-shade-a"),
 
-  shade("shade-a-large", "Cambio Shade A Large", "dome", 200, 150, [
+  shade("shade-a-large", "Cambio Shade A Large", "cylinder", 200, 150, [
     c("Black", 26.4, 66.0),
     c("Blue", 26.4, 66.0),
     c("Green", 26.4, 66.0),
@@ -109,7 +157,7 @@ export const SHADES: Item[] = [
     c("Yellow", 26.4, 66.0),
   ], "cambio-shade-a-large"),
 
-  shade("shade-b", "Cambio Shade B", "flat", 200, 57, [
+  shade("shade-b", "Cambio Shade B", "cylinder", 200, 57, [
     c("Black", 61.2, 72.0),
     c("Blue", 28.8, 72.0),
     c("Green", 28.8, 72.0),
@@ -118,7 +166,7 @@ export const SHADES: Item[] = [
     c("Yellow", 28.8, 72.0),
   ], "cambio-shade-b"),
 
-  shade("shade-b-large", "Cambio Shade B Large", "flat", 400, 114, [
+  shade("shade-b-large", "Cambio Shade B Large", "cylinder", 400, 114, [
     c("Black", 73.5, 105.0),
     c("Blue", 42.0, 105.0),
     c("Green", 42.0, 105.0),
@@ -127,7 +175,7 @@ export const SHADES: Item[] = [
     c("Yellow", 42.0, 105.0),
   ], "cambio-shade-b-large"),
 
-  shade("shade-b-acrylic", "Cambio Shade B Acrylic", "flat", 200, 57, [
+  shade("shade-b-acrylic", "Cambio Shade B Acrylic", "cylinder", 200, 57, [
     c("Opal", 26.4, 66.0),
   ], "cambio-acrylic-b"),
 
@@ -185,33 +233,33 @@ export const SHADES: Item[] = [
   shade("shade-f", "Cambio Shade F", "cone", 160, 100, [
     c("Black", 50.8, 127.0),
     c("White", 50.8, 127.0),
-  ], "cambio-shade-f"),
+  ], "cambio-shade-f", 100),
 
-  shade("shade-g", "Cambio Shade G", "flat", 300, 60, [
+  shade("shade-g", "Cambio Shade G", "cone", 300, 60, [
     c("Black", 50.8, 127.0),
     c("Chocolate", 114.3, 127.0),
     c("White", 50.8, 127.0),
-  ], "cambio-shade-g"),
+  ], "cambio-shade-g", 200),
 
-  shade("shade-g-lrg", "Cambio Shade G Large", "flat", 500, 60, [
+  shade("shade-g-lrg", "Cambio Shade G Large", "cone", 500, 60, [
     c("Black", 105.6, 264.0),
     c("White", 158.4, 264.0),
-  ], "cambio-shade-g-lrg"),
+  ], "cambio-shade-g-lrg", 200),
 
-  shade("shade-h", "Cambio Shade H", "dome", 300, 100, [
+  shade("shade-h", "Cambio Shade H", "cone", 300, 100, [
     c("Black", 50.8, 127.0),
     c("White", 50.8, 127.0),
-  ], "cambio-shade-h"),
+  ], "cambio-shade-h", 60),
 
-  shade("shade-h-lrg", "Cambio Shade H Large", "dome", 600, 200, [
+  shade("shade-h-lrg", "Cambio Shade H Large", "cone", 600, 200, [
     c("Black", 105.6, 264.0),
     c("Chocolate", 237.6, 264.0),
     c("White", 105.6, 264.0),
-  ], "cambio-shade-h-lrg"),
+  ], "cambio-shade-h-lrg", 60),
 ];
 
 export const FIXTURES: Item[] = [
-  fixture("fixture-accord", "Accord Suspension", "cord", [
+  base("fixture-accord", "Accord Suspension — 1800mm", "cord", [
     c("Black", 58.5, 65.0),
     c("Brass", 78.3, 87.0),
     c("Burnt Orange", 32.5, 65.0),
@@ -220,42 +268,69 @@ export const FIXTURES: Item[] = [
     c("Pink", 58.5, 65.0),
     c("White", 58.5, 65.0),
     c("Yellow", 32.5, 65.0),
-  ], "accord", { dropMm: 1800 }),
+  ], "accord", { dropMm: 1800, drops: 1 }),
 
-  fixture("fixture-ceiling", "Cambio Ceiling", "flush", [
+  base("fixture-ceiling", "Cambio Ceiling", "flush", [
     c("Black", 30.1, 43.0),
     c("Brass", 36.6, 61.0),
     c("White", 23.4, 39.0),
-  ], "cambio-ceiling-2"),
+  ], "cambio-ceiling-2", { drops: 1 }),
 
-  fixture("fixture-wall", "Cambio Wall", "flush", [
+  base("fixture-wall", "Cambio Wall", "flush", [
     c("Black", 30.1, 43.0),
     c("Brass", 36.6, 61.0),
     c("White", 23.4, 39.0),
-  ], "cambio-wall"),
+  ], "cambio-wall", { drops: 1 }),
 
-  fixture("fixture-drop", "Cambio LED Drop", "cord", [
+  base("fixture-drop", "Cambio LED Drop — 1800mm", "cord", [
     c("Brass", 82.5, 165.0),
     c("Matte Black", 66.0, 165.0),
-  ], "cambio-drop-led", { dropMm: 1800 }),
+  ], "cambio-drop-led", { dropMm: 1800, drops: 1 }),
 
-  fixture("fixture-linear-1200", "Cambio Linear Pendant — 1200mm", "linear", [
+  base("fixture-linear-1200", "Cambio Linear Pendant — 1200mm", "bar", [
     c("Black", 104.0, 208.0),
     c("White", 104.0, 208.0),
-  ], "cambio-linear-pendant", { lengthMm: 1200 }),
+  ], "cambio-linear-pendant", { lengthMm: 1200, dropMm: 1800, drops: 3 }),
 
-  fixture("fixture-linear-1500", "Cambio Linear Pendant — 1500mm", "linear", [
+  base("fixture-linear-1500", "Cambio Linear Pendant — 1500mm", "bar", [
     c("Black", 124.0, 248.0),
     c("White", 124.0, 248.0),
-  ], "cambio-linear-pendant", { lengthMm: 1500 }),
+  ], "cambio-linear-pendant", { lengthMm: 1500, dropMm: 1800, drops: 4 }),
 
-  fixture("fixture-linear-1800", "Cambio Linear Pendant — 1800mm", "linear", [
+  base("fixture-linear-1800", "Cambio Linear Pendant — 1800mm", "bar", [
     c("Black", 151.5, 303.0),
     c("White", 151.5, 303.0),
-  ], "cambio-linear-pendant", { lengthMm: 1800 }),
+  ], "cambio-linear-pendant", { lengthMm: 1800, dropMm: 1800, drops: 5 }),
 ];
 
-export const ITEMS: Item[] = [...FIXTURES, ...SHADES];
+export const PENDANTS: Item[] = [
+  pendant("pendant-levia-a", "Levia A Pendant", "rod", [
+    c("Black", 212.0, 424.0),
+  ], "levia-a-pendant-light", {
+    lengthMm: 1060,
+    dropMm: 2194,
+    dropLayout: [
+      { xMm: 0, yMm: 0, orient: "left" },
+      { xMm: 100, yMm: 300, orient: "down" },
+      { xMm: 745, yMm: 200, orient: "down" },
+    ],
+    legs: [{ xMm: 545, yMm: 530 }],
+  }),
+
+  pendant("pendant-levia-b", "Levia B Pendant", "bar", [
+    c("Black", 184.5, 369.0),
+  ], "levia-b-pendant-1", { lengthMm: 1310, dropMm: 2310, drops: 3 }),
+
+  pendant("pendant-belki", "Belki Pendant", "dome", [
+    c("Black", 98.5, 197.0),
+  ], "belki-pendant-light", { lengthMm: 370, dropMm: 1800, drops: 1 }),
+
+  pendant("pendant-belki-duo", "Belki Duo Pendant", "dome", [
+    c("Black", 109.5, 219.0),
+  ], "belki-duo-pendant-light", { lengthMm: 730, dropMm: 1800, drops: 2 }),
+];
+
+export const ITEMS: Item[] = [...FIXTURES, ...PENDANTS, ...SHADES];
 
 const byId = new Map(ITEMS.map((i) => [i.id, i]));
 
@@ -266,7 +341,11 @@ export function getItem(id: string): Item {
 }
 
 export function getColour(item: Item, name: string): Colour {
-  return item.colours.find((c) => c.name === name) ?? item.colours[0];
+  return item.colours.find((col) => col.name === name) ?? item.colours[0];
+}
+
+export function dropsOf(item: Item): number {
+  return item.dropLayout?.length ?? item.drops ?? 1;
 }
 
 export function formatAUD(n: number): string {
@@ -275,5 +354,5 @@ export function formatAUD(n: number): string {
 
 /** Lowest sale price across an item's colours (for "From $" labels). */
 export function fromPrice(item: Item): number {
-  return Math.min(...item.colours.map((c) => c.price));
+  return Math.min(...item.colours.map((col) => col.price));
 }

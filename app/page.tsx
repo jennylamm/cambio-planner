@@ -1,5 +1,5 @@
-import Planner from "@/components/Planner";
+import PlannerLoader from "@/components/PlannerLoader";
 
 export default function Home() {
-  return <Planner />;
+  return <PlannerLoader />;
 }
