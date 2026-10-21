@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useState, useSyncExternalStore } from "react";
 import { FIXTURES, PENDANTS, SHADES, formatAUD, fromPrice, type Item } from "@/lib/catalog";
 import {
   PALETTE_BAR_SCALE,
@@ -10,10 +11,20 @@ import {
 import { ShadeSvg } from "./ShadeSvg";
 import { BaseFrame } from "./BaseFrame";
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  open,
+  onToggle,
+  children,
+}: {
+  title: string;
+  open: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
   return (
     <div className="collapse collapse-arrow border-b border-base-200 last:border-0">
-      <input type="checkbox" defaultChecked />
+      <input type="checkbox" checked={open} onChange={onToggle} />
       <div className="collapse-title px-1 py-2 text-[11px] font-semibold uppercase tracking-wide text-base-content/60">
         {title}
       </div>
@@ -56,6 +67,7 @@ function PaletteCard({ item, onAdd }: { item: Item; onAdd: (id: string) => void 
             cordPx={PALETTE_CORD_PX}
             stemPx={PALETTE_STEM_PX}
             k={0.6}
+            fitHeight={64}
           />
         )}
       </span>
@@ -71,10 +83,17 @@ function PaletteCard({ item, onAdd }: { item: Item; onAdd: (id: string) => void 
 }
 
 export function Palette({ onAdd }: { onAdd: (id: string) => void }) {
+  const isDesktop = useIsDesktop();
+  // Manual overrides only; when unset, sections are open on desktop and
+  // collapsed on phones/tablets (where the palette sits below the canvas).
+  const [manual, setManual] = useState<Partial<Record<SectionKey, boolean>>>({});
+  const isOpen = (key: SectionKey) => manual[key] ?? isDesktop;
+  const toggle = (key: SectionKey) => setManual((m) => ({ ...m, [key]: !(m[key] ?? isDesktop) }));
+
   return (
-    <aside className="w-full shrink-0 lg:w-[300px] lg:min-h-0 lg:overflow-y-auto">
+    <aside className="order-2 w-full shrink-0 lg:order-1 lg:w-[300px] lg:min-h-0 lg:overflow-y-auto">
       <div className="rounded-box border border-base-300 bg-base-100 p-3">
-        <Section title="Fixtures">
+        <Section title="Fixtures" open={isOpen("Fixtures")} onToggle={() => toggle("Fixtures")}>
           <div className="grid grid-cols-1 gap-2">
             {FIXTURES.map((item) => (
               <PaletteCard key={item.id} item={item} onAdd={onAdd} />
@@ -82,7 +101,7 @@ export function Palette({ onAdd }: { onAdd: (id: string) => void }) {
           </div>
         </Section>
 
-        <Section title="Pendants">
+        <Section title="Pendants" open={isOpen("Pendants")} onToggle={() => toggle("Pendants")}>
           <div className="grid grid-cols-1 gap-2">
             {PENDANTS.map((item) => (
               <PaletteCard key={item.id} item={item} onAdd={onAdd} />
@@ -90,7 +109,7 @@ export function Palette({ onAdd }: { onAdd: (id: string) => void }) {
           </div>
         </Section>
 
-        <Section title="Shades">
+        <Section title="Shades" open={isOpen("Shades")} onToggle={() => toggle("Shades")}>
           <div className="grid grid-cols-2 gap-2">
             {SHADES.map((item) => (
               <PaletteCard key={item.id} item={item} onAdd={onAdd} />
@@ -99,5 +118,23 @@ export function Palette({ onAdd }: { onAdd: (id: string) => void }) {
         </Section>
       </div>
     </aside>
+  );
+}
+
+type SectionKey = "Fixtures" | "Pendants" | "Shades";
+
+const DESKTOP_QUERY = "(min-width: 1024px)";
+
+/** True when the viewport is at the `lg` breakpoint or wider. */
+function useIsDesktop() {
+  const subscribe = useCallback((onChange: () => void) => {
+    const mq = window.matchMedia(DESKTOP_QUERY);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return useSyncExternalStore(
+    subscribe,
+    () => window.matchMedia(DESKTOP_QUERY).matches,
+    () => false,
   );
 }

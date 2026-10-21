@@ -10,12 +10,15 @@ export function ShadeSvg({
   pxPerMm = SCALE,
   flipped = false,
   sideways = false,
+  mirror = false,
 }: {
   item: Item;
   hex: string;
   pxPerMm?: number;
   flipped?: boolean;
   sideways?: boolean;
+  /** flip the sideways shade so the opening faces left (body extends right) */
+  mirror?: boolean;
 }) {
   const gid = useId().replace(/:/g, "");
   const W = Math.max(1, Math.round((item.diameterMm ?? 100) * pxPerMm));
@@ -27,9 +30,10 @@ export function ShadeSvg({
   const sw = Math.max(0.5, pxPerMm * 2);
 
   if (sideways) {
-    // Mounted on a horizontal socket: the shade's top opening faces right and
-    // the body extends left. We rotate the W×H silhouette 90° clockwise into a
-    // swapped H×W box via a plain SVG matrix (no CSS transform-origin quirks).
+    // Mounted on a horizontal socket. By default the shade's top opening faces
+    // right and the body extends left (a left-pointing socket); mirror flips it
+    // so the opening faces left and the body extends right (right-pointing).
+    const matrix = mirror ? `matrix(0 1 1 0 0 0)` : `matrix(0 1 -1 0 ${H} 0)`;
     return (
       <svg width={H} height={W} viewBox={`0 0 ${H} ${W}`} style={{ display: "block" }} aria-label={item.name}>
         <defs>
@@ -39,7 +43,7 @@ export function ShadeSvg({
             <stop offset="100%" stopColor={dark} />
           </linearGradient>
         </defs>
-        <g transform={`matrix(0 1 -1 0 ${H} 0)`}>
+        <g transform={matrix}>
           <path d={d} fill={`url(#shade-${gid})`} stroke={dark} strokeWidth={sw} />
         </g>
       </svg>

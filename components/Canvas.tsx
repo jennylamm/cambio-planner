@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import type { CSSProperties, DragEvent, RefObject } from "react";
 import { getItem } from "@/lib/catalog";
 import { frameWidth, SCALE, rodFrameGeometry, ROD_BULB_LEN, type DropPosition } from "@/lib/shapes";
+import { measureExtent } from "@/lib/measure";
 import { UID_TYPE, type Placed } from "@/lib/useDesign";
 import { BaseBlock, PlacedShade } from "./PlacedItem";
 import { DetailCard } from "./DetailCard";
@@ -22,6 +23,7 @@ type Props = {
   toggleFlip: (uid: string) => void;
   moveShade: (uid: string, toDrop: number, atIndex?: number) => void;
   captureRef: RefObject<HTMLDivElement | null>;
+  zoomRef: RefObject<HTMLDivElement | null>;
 };
 
 function findPlaced(base: Placed | null, drops: Placed[][], uid: string) {
@@ -114,9 +116,11 @@ export function Canvas({
   toggleFlip,
   moveShade,
   captureRef,
+  zoomRef,
 }: Props) {
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
+  const mainRef = useRef<HTMLElement | null>(null);
 
   const baseItem = base ? getItem(base.itemId) : null;
   const width = baseItem ? frameWidth(baseItem, SCALE) : 0;
@@ -137,6 +141,30 @@ export function Canvas({
   const canMoveUp = !!selIsShade && !!sel && sel.index > 0;
   const canMoveDown =
     !!selIsShade && !!sel && sel.index < (drops[sel.dropIndex]?.length ?? 0) - 1;
+
+  // Fit the design to the available width on narrow screens by scaling it with
+  // CSS `zoom` (zoom scales layout, so centering and scrolling stay correct).
+  useLayoutEffect(() => {
+    const main = mainRef.current;
+    const wrap = zoomRef.current;
+    const design = captureRef.current;
+    if (!main || !wrap || !design) return;
+
+    const MIN_SCALE = 0.35;
+
+    const update = () => {
+      wrap.style.zoom = "1"; // measure at natural size
+      const ext = measureExtent(design);
+      const avail = main.clientWidth - 48; // p-6 padding (24px each side)
+      const s = ext.width > 0 ? Math.min(1, avail / ext.width) : 1;
+      wrap.style.zoom = String(Math.max(MIN_SCALE, s));
+    };
+
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(main);
+    return () => ro.disconnect();
+  }, [base, drops, captureRef, zoomRef]);
 
   const clearDropTarget = () => setDropTarget(null);
 
@@ -179,8 +207,8 @@ export function Canvas({
   }
 
   return (
-    <div className="relative min-h-[400px] flex-1 lg:min-h-0">
-      <main className="absolute inset-0 overflow-auto rounded-box border border-base-300 bg-base-100 p-6">
+    <div className="relative order-1 min-h-[400px] flex-1 lg:order-2 lg:min-h-0">
+      <main ref={mainRef} className="absolute inset-0 overflow-auto rounded-box border border-base-300 bg-base-100 p-6">
         <div className="mx-auto flex w-full max-w-[600px] flex-col items-center bg-base-100">
           {/* drop target area for the design */}
           <div
@@ -202,44 +230,23 @@ export function Canvas({
             />
 
             {base && baseItem ? (
-              isRod && rodGeo ? (
-                <div ref={captureRef} className="relative" style={{ width: rodGeo.width, height: rodGeo.height, marginTop: 10 }}>
-                  {/* frame */}
-                  <div className="absolute left-0 top-0">
-                    <BaseBlock
-                      placed={base}
-                      selected={selectedUid === base.uid}
-                      onSelect={() => setSelectedUid(base.uid)}
-                    />
-                  </div>
-                  {/* shade stacks, positioned at their sockets */}
-                  {drops.map((stack, i) => (
-                    <RodStack
-                      key={i}
-                      stack={stack}
-                      socket={rodGeo.sockets[i]}
-                      dropIndex={i}
-                      selectedUid={selectedUid}
-                      onSelect={setSelectedUid}
-                      onDragEnd={clearDropTarget}
-                      dropTarget={dropTarget}
-                      onHover={handleHover}
-                      onDrop={handleDrop}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div ref={captureRef} className="flex flex-col items-center" style={{ paddingTop: 10 }}>
-                  <BaseBlock
-                    placed={base}
-                    selected={selectedUid === base.uid}
-                    onSelect={() => setSelectedUid(base.uid)}
-                  />
-                  <div className="flex items-start" style={{ width }}>
+              <div ref={zoomRef}>
+                {isRod && rodGeo ? (
+                  <div ref={captureRef} className="relative" style={{ width: rodGeo.width, height: rodGeo.height, marginTop: 10 }}>
+                    {/* frame */}
+                    <div className="absolute left-0 top-0">
+                      <BaseBlock
+                        placed={base}
+                        selected={selectedUid === base.uid}
+                        onSelect={() => setSelectedUid(base.uid)}
+                      />
+                    </div>
+                    {/* shade stacks, positioned at their sockets */}
                     {drops.map((stack, i) => (
-                      <DropColumn
+                      <RodStack
                         key={i}
                         stack={stack}
+                        socket={rodGeo.sockets[i]}
                         dropIndex={i}
                         selectedUid={selectedUid}
                         onSelect={setSelectedUid}
@@ -250,8 +257,31 @@ export function Canvas({
                       />
                     ))}
                   </div>
-                </div>
-              )
+                ) : (
+                  <div ref={captureRef} className="flex flex-col items-center" style={{ paddingTop: 10 }}>
+                    <BaseBlock
+                      placed={base}
+                      selected={selectedUid === base.uid}
+                      onSelect={() => setSelectedUid(base.uid)}
+                    />
+                    <div className="flex items-start" style={{ width }}>
+                      {drops.map((stack, i) => (
+                        <DropColumn
+                          key={i}
+                          stack={stack}
+                          dropIndex={i}
+                          selectedUid={selectedUid}
+                          onSelect={setSelectedUid}
+                          onDragEnd={clearDropTarget}
+                          dropTarget={dropTarget}
+                          onHover={handleHover}
+                          onDrop={handleDrop}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             ) : (
               <div className="flex min-h-[180px] flex-col items-center justify-center text-center text-sm text-base-content/40">
                 <span>Drag a fixture or pendant here to start</span>
@@ -307,7 +337,7 @@ function DropColumn({
 }) {
   return (
     <div
-      className="relative flex flex-1 flex-col items-start"
+      className="relative flex min-w-0 flex-1 flex-col items-start"
       onDragOver={(e) => {
         e.preventDefault();
         const reorder = isReorder(e);
@@ -379,10 +409,12 @@ function RodStack({
   onDrop: (drop: number, reorder: boolean, overIndex: number, e: DragEvent) => void;
 }) {
   const sideways = socket.orient !== "down";
+  const isRight = socket.orient === "right";
 
   const shadeProps = (p: Placed) => ({
     placed: p,
     sideways,
+    mirror: isRight,
     selfCenter: false,
     selected: p.uid === selectedUid,
     onSelect: () => onSelect(p.uid),
@@ -415,18 +447,19 @@ function RodStack({
   };
 
   if (sideways) {
-    // horizontal stack, extending leftward from the socket
+    // horizontal stack extending from the socket — leftward (default) or
+    // rightward (a "right" socket)
     return (
       <div
         className="absolute flex items-center"
-        style={{
-          left: socket.x - ROD_BULB_LEN,
-          top: socket.y,
-          transform: "translate(-100%, -50%)",
-        }}
+        style={
+          isRight
+            ? { left: socket.x + ROD_BULB_LEN, top: socket.y, transform: "translateY(-50%)" }
+            : { left: socket.x - ROD_BULB_LEN, top: socket.y, transform: "translate(-100%, -50%)" }
+        }
         {...dragHandlers}
       >
-        <div className="flex flex-row-reverse items-center">
+        <div className={`flex items-center ${isRight ? "flex-row" : "flex-row-reverse"}`}>
           {stack.map((p) => (
             <PlacedShade key={p.uid} {...shadeProps(p)} />
           ))}

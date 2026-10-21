@@ -51,6 +51,8 @@ export type Item = {
   dropLayout?: DropLayout[];
   /** Bases only — bare rod legs with no socket (rod frames) */
   legs?: RodLeg[];
+  /** Bases only — explicit canopy x positions in mm (rod frames); auto when omitted */
+  canopyXmm?: number[];
   colours: Colour[];
   sourceUrl: string;
 };
@@ -103,6 +105,7 @@ type BaseOpts = {
   drops?: number;
   dropLayout?: DropLayout[];
   legs?: RodLeg[];
+  canopyXmm?: number[];
 };
 
 function base(
@@ -123,6 +126,7 @@ function base(
     drops: opts.drops ?? opts.dropLayout?.length ?? 1,
     dropLayout: opts.dropLayout,
     legs: opts.legs,
+    canopyXmm: opts.canopyXmm,
     colours,
     sourceUrl: `https://www.aboutspace.net.au/products/${handle}`,
   };
@@ -317,17 +321,18 @@ export const PENDANTS: Item[] = [
     legs: [{ xMm: 545, yMm: 530 }],
   }),
 
-  pendant("pendant-levia-b", "Levia B Pendant", "bar", [
+  pendant("pendant-levia-b", "Levia B Pendant", "rod", [
     c("Black", 184.5, 369.0),
-  ], "levia-b-pendant-1", { lengthMm: 1310, dropMm: 2310, drops: 3 }),
-
-  pendant("pendant-belki", "Belki Pendant", "dome", [
-    c("Black", 98.5, 197.0),
-  ], "belki-pendant-light", { lengthMm: 370, dropMm: 1800, drops: 1 }),
-
-  pendant("pendant-belki-duo", "Belki Duo Pendant", "dome", [
-    c("Black", 109.5, 219.0),
-  ], "belki-duo-pendant-light", { lengthMm: 730, dropMm: 1800, drops: 2 }),
+  ], "levia-b-pendant-1", {
+    lengthMm: 1310,
+    dropMm: 2310,
+    dropLayout: [
+      { xMm: 150, yMm: 680, orient: "down" },
+      { xMm: 950, yMm: 680, orient: "down" },
+      { xMm: 1310, yMm: 0, orient: "right" },
+    ],
+    canopyXmm: [150, 950],
+  }),
 ];
 
 export const ITEMS: Item[] = [...FIXTURES, ...PENDANTS, ...SHADES];

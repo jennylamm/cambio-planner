@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { toCanvas } from "html-to-image";
 import { getItem, formatAUD } from "@/lib/catalog";
 import { useDesign } from "@/lib/useDesign";
+import { measureExtent } from "@/lib/measure";
 import { Palette } from "./Palette";
 import { Canvas } from "./Canvas";
 import { Tally } from "./Tally";
@@ -14,22 +15,11 @@ import { Tally } from "./Tally";
  */
 async function captureNode(el: HTMLElement): Promise<HTMLCanvasElement> {
   const own = el.getBoundingClientRect();
-  let minX = own.left;
-  let minY = own.top;
-  let maxX = own.right;
-  let maxY = own.bottom;
-  el.querySelectorAll("*").forEach((child) => {
-    const r = (child as HTMLElement).getBoundingClientRect();
-    if (r.width === 0 && r.height === 0) return;
-    minX = Math.min(minX, r.left);
-    minY = Math.min(minY, r.top);
-    maxX = Math.max(maxX, r.right);
-    maxY = Math.max(maxY, r.bottom);
-  });
+  const ext = measureExtent(el);
 
   // Nothing overflows the element's own box — capture it as-is.
   const overflows =
-    minX < own.left || minY < own.top || maxX > own.right || maxY > own.bottom;
+    ext.left < own.left || ext.top < own.top || ext.right > own.right || ext.bottom > own.bottom;
   if (!overflows) {
     return toCanvas(el, { backgroundColor: "#ffffff" });
   }
@@ -37,10 +27,10 @@ async function captureNode(el: HTMLElement): Promise<HTMLCanvasElement> {
   // The design (e.g. shades hanging below a rod frame, or a sideways shade
   // extending left) overflows the container. Temporarily size the container so
   // its box covers the full rendered extent, capture, then restore.
-  const width = Math.ceil(maxX - minX);
-  const height = Math.ceil(maxY - minY);
-  const padLeft = Math.ceil(own.left - minX);
-  const padTop = Math.ceil(own.top - minY);
+  const width = Math.ceil(ext.width);
+  const height = Math.ceil(ext.height);
+  const padLeft = Math.ceil(own.left - ext.left);
+  const padTop = Math.ceil(own.top - ext.top);
 
   const prev = {
     width: el.style.width,
@@ -67,6 +57,7 @@ async function captureNode(el: HTMLElement): Promise<HTMLCanvasElement> {
 export default function Planner() {
   const d = useDesign();
   const designRef = useRef<HTMLDivElement | null>(null);
+  const zoomRef = useRef<HTMLDivElement | null>(null);
   const tallyRef = useRef<HTMLDivElement | null>(null);
   const [exporting, setExporting] = useState(false);
 
@@ -79,13 +70,24 @@ export default function Planner() {
   const handleDownload = async () => {
     const designEl = designRef.current;
     const tallyEl = tallyRef.current;
+    const zoomEl = zoomRef.current;
     if (!designEl || !tallyEl || exporting) return;
     setExporting(true);
     try {
-      const [design, tally] = await Promise.all([
-        captureNode(designEl),
-        toCanvas(tallyEl, { backgroundColor: "#ffffff" }),
-      ]);
+      // Export at natural (unscaled) size: the display zoom is applied to a
+      // wrapper around `designEl`, so reset it while measuring and capturing.
+      const prevZoom = zoomEl ? zoomEl.style.zoom : "";
+      if (zoomEl) zoomEl.style.zoom = "1";
+      const [design, tally] = await (async () => {
+        try {
+          return await Promise.all([
+            captureNode(designEl),
+            toCanvas(tallyEl, { backgroundColor: "#ffffff" }),
+          ]);
+        } finally {
+          if (zoomEl) zoomEl.style.zoom = prevZoom;
+        }
+      })();
 
       const PAD = 24;
       const gap = 24;
@@ -160,9 +162,10 @@ export default function Planner() {
           toggleFlip={d.toggleFlip}
           moveShade={d.moveShade}
           captureRef={designRef}
+          zoomRef={zoomRef}
         />
 
-        <aside className="w-full shrink-0 lg:w-[280px] lg:min-h-0 lg:overflow-y-auto">
+        <aside className="order-3 w-full shrink-0 lg:w-[280px] lg:min-h-0 lg:overflow-y-auto">
           <div ref={tallyRef} className="rounded-box border border-base-300 bg-base-100 p-4">
             <h2 className="mb-3 text-sm font-semibold">Cost Tally</h2>
             <Tally lines={d.lines} totalSale={d.totalSale} totalRrp={d.totalRrp} />

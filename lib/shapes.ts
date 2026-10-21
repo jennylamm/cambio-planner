@@ -100,11 +100,14 @@ export function rodFrameGeometry(item: Item, pxPerMm: number, k = 1) {
     y: bodyTop + mm(l.yMm),
   }));
 
-  // Canopies hang above the first downward socket (left rod) and each bare leg.
+  // Canopies hang above the first downward socket (left rod) and each bare leg,
+  // unless the item specifies explicit canopy x positions (mm).
   const downSockets = sockets.filter((s) => s.orient === "down");
-  const canopyX = [downSockets[0]?.x, ...legs.map((l) => l.x)].filter(
-    (x): x is number => x !== undefined,
-  );
+  const canopyX = item.canopyXmm
+    ? item.canopyXmm.map((x) => rodLeft + mm(x))
+    : [downSockets[0]?.x, ...legs.map((l) => l.x)].filter(
+        (x): x is number => x !== undefined,
+      );
 
   const lowest = [...sockets.map((s) => s.y), ...legs.map((l) => l.y)].reduce(
     (m, y) => Math.max(m, y),

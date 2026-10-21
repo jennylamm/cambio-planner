@@ -25,6 +25,7 @@ export function BaseFrame({
   cordPx,
   stemPx,
   k = 1,
+  fitHeight,
 }: {
   item: Item;
   hex: string;
@@ -33,11 +34,13 @@ export function BaseFrame({
   stemPx: number;
   /** scales the small fixed elements (plate, bar, nub thickness) */
   k?: number;
+  /** max height in px — rod frames scale down (preserving aspect) to fit */
+  fitHeight?: number;
 }) {
   const gid = useId().replace(/:/g, "");
   const type = item.fixtureType ?? "cord";
   if (type === "rod") {
-    return <RodFrame item={item} hex={hex} pxPerMm={pxPerMm} k={k} />;
+    return <RodFrame item={item} hex={hex} pxPerMm={pxPerMm} k={k} fitHeight={fitHeight} />;
   }
   const drops = dropsOf(item);
   const width = frameWidth(item, pxPerMm);
@@ -184,15 +187,21 @@ function RodFrame({
   hex,
   pxPerMm,
   k = 1,
+  fitHeight,
 }: {
   item: Item;
   hex: string;
   pxPerMm: number;
   k?: number;
+  fitHeight?: number;
 }) {
   const gid = useId().replace(/:/g, "");
   const geo = rodFrameGeometry(item, pxPerMm, k);
   const { width, height, bodyTop, rodLeft, rodRight, sockets, legs, canopyX } = geo;
+
+  const scale = fitHeight && height > fitHeight ? fitHeight / height : 1;
+  const outW = Math.round(width * scale);
+  const outH = Math.round(height * scale);
 
   const light = shift(hex, 0.2);
   const dark = shift(hex, -0.28);
@@ -208,8 +217,8 @@ function RodFrame({
 
   return (
     <svg
-      width={width}
-      height={height}
+      width={outW}
+      height={outH}
       viewBox={`0 0 ${width} ${height}`}
       style={{ display: "block" }}
       aria-label={item.name}
@@ -331,7 +340,7 @@ function RodFrame({
         ) : (
           <rect
             key={`bk-${i}`}
-            x={s.x - bulbL}
+            x={s.orient === "right" ? s.x : s.x - bulbL}
             y={s.y - bulbW / 2}
             width={bulbL}
             height={bulbW}

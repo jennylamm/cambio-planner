@@ -42,6 +42,7 @@ export function BaseBlock({
 export function PlacedShade({
   placed,
   sideways = false,
+  mirror = false,
   selfCenter = true,
   selected = false,
   onSelect,
@@ -50,6 +51,8 @@ export function PlacedShade({
   placed: Placed;
   /** Mounted on a horizontal socket — shade is rotated 90°. */
   sideways?: boolean;
+  /** For sideways shades on a right-pointing socket — mirror the silhouette. */
+  mirror?: boolean;
   /** When false the parent positions the shade (rod-frame stacks). */
   selfCenter?: boolean;
   selected?: boolean;
@@ -61,7 +64,7 @@ export function PlacedShade({
 
   const shade = sideways ? (
     <div className="flex items-center justify-center" style={{ width: H_PX(item), height: W_PX(item) }}>
-      <ShadeSvg item={item} hex={col.hex} pxPerMm={SCALE} sideways />
+      <ShadeSvg item={item} hex={col.hex} pxPerMm={SCALE} sideways mirror={mirror} />
     </div>
   ) : (
     <ShadeSvg item={item} hex={col.hex} pxPerMm={SCALE} flipped={placed.flipped} />
